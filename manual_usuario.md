@@ -20,10 +20,10 @@ Para ejecutar la herramienta localmente, asegúrese de cumplir con los siguiente
     ```
 3.  **Levantar el servidor local:** En la misma terminal (dentro de la carpeta `backend`), ejecute el servidor web integrado de PHP:
     ```bash
-    php -S localhost:8080
+    php -S localhost:8000
     ```
     
-4.  **Abrir la interfaz:** Navegue a la carpeta `frontend` del proyecto y abra el archivo `index.html` en su navegador web: http://localhost:8080/frontend/index.html.
+4.  **Abrir la interfaz:** Abra su navegador web e ingrese a: http://localhost:8000/.
 
 ---
 
@@ -34,10 +34,10 @@ La interfaz gráfica proporciona un entorno amigable para escribir y probar cód
 ### Crear, Editar y Ejecutar Código
 1.  **Escribir código:** Utilice el área de texto principal (Editor) para escribir su código fuente en Golampi desde cero.
 2.  **Cargar un archivo:** Si dispone de un archivo `.go` (por ejemplo, `test_completo.go`), utilice la opción "Abrir Archivo" / "Cargar Archivo" para volcar su contenido automáticamente en el editor.
-3.  **Ejecutar:** Una vez que el código esté listo, presione el botón **"Ejecutar"** (o "Run"). Esto enviará el código al backend para su análisis léxico, sintáctico y ejecución semántica.
+3.  **Ejecutar:** Una vez que el código esté listo, presione el botón **"Ejecutar"**. Esto enviará el código al backend para su análisis léxico, sintáctico y ejecución semántica.
 4.  **Visualizar Salida:** Debajo del editor, el panel de **"Consola"** mostrará las salidas generadas por el programa (como impresiones de `fmt.Println()`) o los mensajes de finalización.
 
-*[Insertar aquí: Captura de pantalla general de la interfaz mostrando el editor de código con un programa de ejemplo, el botón de ejecutar y la consola de salida]*
+![alt text](image-3.png)
 
 ---
 
@@ -54,7 +54,7 @@ Este reporte muestra el estado final de la memoria y el seguimiento de todas las
 * **Valor:** El valor final calculado por el intérprete en tiempo de ejecución.
 * **Línea y Columna:** La ubicación en el código fuente donde el símbolo fue declarado.
 
-*[Insertar aquí: Captura de pantalla de la Tabla de Símbolos generada tras una ejecución exitosa]*
+![alt text](image-4.png)
 
 ### 3.2. Reporte de Errores
 Si el código contiene fallos, la ejecución se detendrá o registrará las anomalías en la tabla de Errores.
@@ -66,4 +66,4 @@ Si el código contiene fallos, la ejecución se detendrá o registrará las anom
 * **Descripción:** Un mensaje claro y detallado del problema encontrado por el analizador.
 * **Línea y Columna:** Las coordenadas exactas en el editor donde ocurrió el error, lo que permite una corrección rápida.
 
-*[Insertar aquí: Captura de pantalla de la Tabla de Errores mostrando un ejemplo de error sintáctico o semántico detectado en el editor]*
+![alt text](image-5.png)

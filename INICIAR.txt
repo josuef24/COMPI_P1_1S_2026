@@ -1,4 +1,4 @@
 cd "Golampi Interpreter"
-php -S localhost:8080
+php -S localhost:8000
 
-http://localhost:8080/frontend/index.html
+http://localhost:8000/
