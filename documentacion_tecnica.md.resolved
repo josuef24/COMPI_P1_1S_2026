@@ -1,0 +1,241 @@
+# Documentación Técnica: Golampi Interpreter
+
+Este documento describe la arquitectura interna del intérprete Golampi construido en PHP, detallando su gramática formal, estructura de clases y el flujo de procesamiento básico junto con la tabla de símbolos.
+
+---
+
+## 1. Gramática Formal de Golampi (EBNF)
+
+A continuación se presenta la gramática formal simplificada que describe el subconjunto del lenguaje Golampi soportado por este intérprete. Se basa en el analizador de descenso recursivo implementado y en el archivo [Golampi.g4](file:///home/josue/Escritorio/Golampi%20Interpreter/backend/grammar/Golampi.g4).
+
+```ebnf
+program         ::= declaration* EOF
+
+declaration     ::= funcDecl | varDecl | constDecl
+
+funcDecl        ::= "func" IDENTIFIER "(" paramList? ")" returnType? block
+paramList       ::= param ("," param)*
+param           ::= IDENTIFIER "*"? type
+returnType      ::= type | "(" type ("," type)* ")"
+
+varDecl         ::= "var" varSpec
+varSpec         ::= IDENTIFIER ("[" expression "]")* type ("=" expression)?
+                  | IDENTIFIER ("," IDENTIFIER)* type ("=" expressionList)?
+
+constDecl       ::= "const" IDENTIFIER type "=" expression
+
+block           ::= "{" statement* "}"
+
+statement       ::= varDecl
+                  | constDecl
+                  | shortVarDecl
+                  | assignment
+                  | incDecStmt
+                  | ifStmt
+                  | switchStmt
+                  | forStmt
+                  | returnStmt
+                  | breakStmt
+                  | continueStmt
+                  | expressionStmt
+
+shortVarDecl    ::= IDENTIFIER ("," IDENTIFIER)* ":=" expressionList
+assignment      ::= expression assignOp expression
+assignOp        ::= "=" | "+=" | "-=" | "*=" | "/="
+incDecStmt      ::= IDENTIFIER ("++" | "--")
+
+ifStmt          ::= "if" expression block ("else" (ifStmt | block))?
+
+switchStmt      ::= "switch" expression "{" caseClause* defaultClause? "}"
+caseClause      ::= "case" expressionList ":" statement*
+defaultClause   ::= "default" ":" statement*
+
+forStmt         ::= "for" (forClause | expression)? block
+forClause       ::= initStmt? ";" expression? ";" postStmt?
+initStmt        ::= shortVarDecl | assignment | expressionStmt
+postStmt        ::= assignment | incDecStmt | expressionStmt
+
+returnStmt      ::= "return" expressionList?
+breakStmt       ::= "break"
+continueStmt    ::= "continue"
+expressionStmt  ::= expression
+
+expressionList  ::= expression ("," expression)*
+
+expression      ::= logicalOr
+logicalOr       ::= logicalAnd ("||" logicalAnd)*
+logicalAnd      ::= equality ("&&" equality)*
+equality        ::= relational (("==" | "!=") relational)*
+relational      ::= additive (("<" | ">" | "<=" | ">=") additive)*
+additive        ::= multiplicative (("+" | "-") multiplicative)*
+multiplicative  ::= unary (("*" | "/" | "%") unary)*
+unary           ::= ("!" | "-" | "*" | "&") unary 
+                  | primary ("[" expression "]")*
+                  
+primary         ::= "(" expression ")"
+                  | IDENTIFIER
+                  | literal
+                  | funcCall
+                  | builtinCall
+                  | arrayLiteral
+
+funcCall        ::= IDENTIFIER "(" expressionList? ")"
+builtinCall     ::= "fmt.Println" "(" expressionList? ")"
+                  | "len" "(" expression ")"
+                  | "now" "()"
+                  | "substr" "(" expression "," expression "," expression ")"
+                  | "typeOf" "(" expression ")"
+
+literal         ::= INT_LIT | FLOAT_LIT | STRING_LIT | RUNE_LIT | "true" | "false" | "nil"
+arrayLiteral    ::= ("[" expression "]")* type "{" arrayElements? "}"
+arrayElements   ::= expression ("," expression)*
+
+type            ::= "int" | "int32" | "float32" | "bool" | "string" | "rune"
+                  | "*"? ("[" expression "]")* type
+```
+
+---
+
+## 2. Diagrama de Clases (Arquitectura del Intérprete)
+
+Este diagrama modela cómo interactúan los componentes principales del intérprete construido en PHP. Se dividen en Análisis (Lexer/Parser), Árbol Sintáctico (AST) y Semántica (Interpreter/Environment).
+
+```mermaid
+classDiagram
+    class Lexer {
+        -string input
+        -int pos
+        -array tokens
+        +tokenize() array
+    }
+
+    class Parser {
+        -array tokens
+        -int pos
+        +parse() ProgramNode
+    }
+
+    class ASTNode {
+        <<abstract>>
+        +int line
+        +int col
+    }
+
+    class ProgramNode {
+        +array declarations
+    }
+
+    class StatementNode {
+        <<abstract>>
+    }
+
+    class ExpressionNode {
+        <<abstract>>
+    }
+
+    class Environment {
+        -Environment parent
+        -string scopeName
+        -array variables
+        -array constants
+        +declare(name, value, type, isConst)
+        +get(name) GolampiValue
+        +set(name, value)
+    }
+
+    class GolampiValue {
+        +string type
+        +mixed value
+        +toInt()
+        +toFloat()
+        +toBool()
+        +toPrintString()
+    }
+
+    class Interpreter {
+        -Environment globalEnv
+        -array functions
+        -array output
+        +execute(ProgramNode)
+        -execStatement(StatementNode, Environment)
+        -evalExpr(ExpressionNode, Environment) GolampiValue
+    }
+
+    ASTNode <|-- ProgramNode
+    ASTNode <|-- StatementNode
+    ASTNode <|-- ExpressionNode
+    
+    StatementNode <|-- VarDeclNode
+    StatementNode <|-- IfNode
+    StatementNode <|-- ForNode
+    StatementNode <|-- AssignNode
+    
+    ExpressionNode <|-- BinaryOpNode
+    ExpressionNode <|-- IdentifierNode
+    ExpressionNode <|-- IntLitNode
+
+    Lexer --> Parser : Genera Tokens
+    Parser --> ProgramNode : Construye AST
+    Interpreter --> ProgramNode : Navega AST
+    Interpreter --> Environment : Maneja Ámbitos
+    Interpreter --> GolampiValue : Evalúa Expresiones
+    Environment --> GolampiValue : Almacena Valores
+```
+
+---
+
+## 3. Flujo de Procesamiento y Tabla de Símbolos
+
+El siguiente diagrama de flujo muestra cómo el intérprete procesa el código fuente de inicio a fin. Presta especial atención a la fase de **Análisis Semántico**, donde la Tabla de Símbolos ([Environment](file:///home/josue/Escritorio/Golampi%20Interpreter/backend/interpreter/Environment.php#5-112)) juega el rol principal en gestionar los ámbitos (scopes), realizar el _hoisting_ (elevar funciones) y controlar los tipos de datos.
+
+```mermaid
+flowchart TD
+    A[Código Fuente Golampi] --> B(Análisis Léxico)
+    B -->|Genera secuencia de Tokens| C{Analizador Sintáctico}
+    
+    C -->|Si hay errores| ERRS[Reporte Errores Sintácticos]
+    C -->|Si es válido| D[Genera AST - Árbol Abstracto]
+    
+    D --> E(Primer Pase: Hoisting)
+    E -->|Registra| F[(Environment Global)]
+    F -->|Almacena firmas de| G[Funciones func...]
+    
+    E --> H(Segundo Pase: Ejecución)
+    H -->|Inicializa| I[Variables Globales y Constantes]
+    I -->|Guarda en| F
+    
+    I --> J{¿Existe func main()?}
+    J -->|No| ERR[Error: No main]
+    J -->|Sí| K[Genera Environment 'main' hijo de Global]
+    
+    K --> L[Ejecución de Nodos AST main]
+    
+    L --> M{Tipo de Nodo}
+    
+    M -->|Declaración var x| N[Registrar en Environment local]
+    N -->|Impacta| T[(Tabla de Símbolos)]
+    
+    M -->|Asignación x = y| O[Buscar en Environment]
+    O -->|Si no existe scope local| P[Buscar en scope Padre]
+    P -->|Actualizar valor| T
+    
+    M -->|Bloque if / for| Q[Crear nuevo Environment hijo]
+    Q --> L
+    
+    M -->|fmt.Println| R[Output Consola]
+    M -->|func call| S[Crear Environment Función y evaluar Params]
+    S --> L
+    
+    L -->|Fin main o return| Z((Fin de Ejecución))
+    
+    Z --> T
+    Z --> R
+    Z --> ERRS
+```
+
+### Gestión de la Tabla de Símbolos
+
+La **Tabla de Símbolos** en este intérprete se maneja a través de la clase [Environment](file:///home/josue/Escritorio/Golampi%20Interpreter/backend/interpreter/Environment.php#5-112). 
+1. **Scopes anidados**: Cada vez que se entra a un bloque (función, if, for, switch), se crea un nuevo objeto [Environment](file:///home/josue/Escritorio/Golampi%20Interpreter/backend/interpreter/Environment.php#5-112) que tiene una referencia a su **padre**.
+2. **Registro centralizado**: Cada creación o modificación válida de una variable envía un log estático en el [Environment](file:///home/josue/Escritorio/Golampi%20Interpreter/backend/interpreter/Environment.php#5-112) (`self::$symbolReport`), en el cual se registra: `[ID, Tipo, Scope, Valor Acumulado, Línea, Columna]`.
+3. **Paso por valor/referencia**: Cuando se envían parámetros, si son estáticos se hace copia profunda del [GolampiValue](file:///home/josue/Escritorio/Golampi%20Interpreter/backend/interpreter/GolampiValue.php#5-112). Si usan punteros `*`, se pasa un tipo especial `'reference'` que guarda el apuntador directo hacia el [Environment](file:///home/josue/Escritorio/Golampi%20Interpreter/backend/interpreter/Environment.php#5-112) origen de esa variable.
